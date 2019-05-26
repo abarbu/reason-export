@@ -9,6 +9,7 @@ copyright:           "2019 Andrei Barbu"
 extra-source-files:
 - README.md
 - ChangeLog.md
+- test/*.re
 
 synopsis:            Generate Reason types from Haskell
 category:            Web
