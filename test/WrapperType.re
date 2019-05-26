@@ -1,0 +1,2 @@
+type wrapper =
+    | Wrapper(int)
