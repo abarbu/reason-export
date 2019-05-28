@@ -70,6 +70,9 @@ data Unit = Unit
 newtype Wrapper = Wrapper Int
   deriving (Generic, ReasonType)
 
+data TwoArg = TwoArg String Double
+  deriving (Generic, ReasonType)
+
 newtype FavoritePlaces = FavoritePlaces
   { positionsByUser :: Map String [Position]
   } deriving (Generic, ReasonType)
@@ -153,6 +156,12 @@ toReasonTypeSpec =
         defaultOptions
         (Proxy :: Proxy Wrapper)
         "test/WrapperType.re"
+    it "toReasonTypeSource TwoArg" $
+      shouldMatchTypeSource
+        (unlines ["%s"])
+        defaultOptions
+        (Proxy :: Proxy TwoArg)
+        "test/TwoArg.re"
     it "toReasonTypeSource FavoritePlaces" $
       shouldMatchTypeSource
         (unlines
@@ -319,6 +328,16 @@ toReasonDecoderSpec =
         defaultOptions
         (Proxy :: Proxy Wrapper)
         "test/WrapperDecoder.re"
+    it "toReasonDecoderSource TwoArg" $
+      shouldMatchDecoderSource
+        (unlines
+           [ "open TwoArgType;"
+           , ""
+           , "%s"
+           ])
+        defaultOptions
+        (Proxy :: Proxy TwoArg)
+        "test/TwoArgDecoder.re"
     it "toReasonDecoderSource Shadowing" $
       shouldMatchDecoderSource
         (unlines
@@ -471,6 +490,16 @@ toReasonEncoderSpec =
         defaultOptions
         (Proxy :: Proxy Wrapper)
         "test/WrapperEncoder.re"
+    it "toReasonEncoderSourceWithOptions TwoArg" $
+      shouldMatchEncoderSource
+        (unlines
+           [ "open TwoArgType;"
+           , ""
+           , "%s"
+           ])
+        defaultOptions
+        (Proxy :: Proxy TwoArg)
+        "test/TwoArgEncoder.re"
     describe "Convert to Reason encoder references." $ do
       it "toReasonEncoderRef Post" $
         toReasonEncoderRef (Proxy :: Proxy Post) `shouldBe` "encodePost"

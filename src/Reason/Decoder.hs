@@ -39,8 +39,23 @@ instance HasDecoder ReasonConstructor where
     return $ "json |> Json.Decode.nullAs" <> parens (stext name)
   render (NamedConstructor name (ReasonPrimitiveRef RUnit)) =
     return $ "json |> Json.Decode.nullAs" <> parens (stext name)
+  render (NamedConstructor name value@(Values _ _)) = do
+    (_, tyargs) <- renderConstructorArgs' 0 value
+    pure $ case tyargs of
+      [] -> stext name
+      [(r0,a0)] -> stext name <> parens (stext "json |> " <> r0)
+      [(r0,a0), (r1,a1)] ->
+        parens (parens (tupled [a0, a1]) <+> "=>" <+> stext name <> tupled [a0, a1])
+        <> parens (stext "json |> Json.Decode.tuple2" <> tupled [r0, r1])
+      [(r0,a0), (r1,a1), (r2,a2)] ->
+        parens (parens (tupled [a0, a1]) <+> "=>" <+> stext name <> tupled [a0, a1, a2])
+        <> parens (stext "json |> Json.Decode.tuple2" <> tupled [r0, r1, r2])
+      [(r0,a0), (r1,a1), (r2,a2) , (r3,a3)] ->
+        parens (parens (tupled [a0, a1]) <+> "=>" <+> stext name <> tupled [a0, a1, a2, a3])
+        <> parens (stext "json |> Json.Decode.tuple2" <> tupled [r0, r1, r2, r3])
+      _ -> error "Bare constructors with more than 4 arguments are not supported, use records"
   render (NamedConstructor name value) = do
-    (_, val) <- renderConstructorArgs 0 value
+    (n, val) <- renderConstructorArgs 0 value
     return $ (stext name <+> parens val)
   render (RecordConstructor _ value) = do
     dv <- render value
@@ -93,6 +108,15 @@ renderConstructorArgs i (Values l r) = do
 renderConstructorArgs i val = do
   rndrVal <- render val
   pure (i, "json |> Json.Decode.field" <+> tupled [dquotes ("arg" <> int i), rndrVal] <> comma)
+
+renderConstructorArgs' :: Int -> ReasonValue -> RenderM (Int, [(Doc,Doc)])
+renderConstructorArgs' i (Values l r) = do
+  (iL, rndrL) <- renderConstructorArgs' i l
+  (iR, rndrR) <- renderConstructorArgs' (iL + 1) r
+  pure (iR, rndrL <> rndrR)
+renderConstructorArgs' i val = do
+  rndrVal <- render val
+  pure (i, [(rndrVal, ("arg" <> int i))])
 
 instance HasDecoder ReasonValue where
   render (ReasonRef name) = pure $ "decode" <> stext name
