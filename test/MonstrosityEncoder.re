@@ -4,15 +4,17 @@ let rec encodeMonstrosity  = (x : monstrosity) =>
     switch(x) {
         | NotSpecial =>
             Json.Encode.object_
-                ([( "tag", Json.Encode.string("NotSpecial") ),])
+                ([( "tag", Json.Encode.string("NotSpecial") )])
         | OkayIGuess(arg0) =>
             Json.Encode.object_
                 ([( "tag", Json.Encode.string("OkayIGuess") ),
-                    ( "arg0", encodeMonstrosity(arg0) ),])
+                  ("contents", encodeMonstrosity(arg0))])
 
         | Ridiculous(arg0,arg1,arg2) =>
             Json.Encode.object_
                 ([( "tag", Json.Encode.string("Ridiculous") ),
-                    ( "arg0", Json.Encode.int(arg0) ),
-                    ( "arg1", Json.Encode.string(arg1) ),
-                    ( "arg2", (Json.Encode.list(encodeMonstrosity))(arg2) ),])}
+                  ("contents", Json.Encode.jsonArray([|
+                    Json.Encode.int(arg0),
+                    Json.Encode.string(arg1),
+                    (Json.Encode.list(encodeMonstrosity))(arg2)
+                  |]))])}

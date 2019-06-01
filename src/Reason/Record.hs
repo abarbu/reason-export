@@ -59,7 +59,13 @@ instance HasType ReasonConstructor where
                                          empty else
                                          parens dv)
   render (MultipleConstructors constructors) =
-    mintercalate (line <> "|" <> space) <$> sequence (render <$> constructors)
+    mintercalate (line <> "|" <> space)
+    <$> (mapM (\c -> case c of
+                      RecordConstructor n _ -> do
+                        r <- render c
+                        pure $ stext n <+> indent 0 r
+                      _ -> render c)
+                   constructors)
 
 instance HasType ReasonValue where
   render (ReasonRef name) = pure (stextLower name)

@@ -43,57 +43,56 @@ instance HasDecoder ReasonConstructor where
     (_, tyargs) <- renderConstructorArgs' 0 value
     pure $ case tyargs of
       [] -> stext name
-      [(r0,a0)] -> stext name <> parens (stext "json |> " <> r0)
+      [(r0,_)] -> stext name <> parens (stext "json |> " <> r0)
       [(r0,a0), (r1,a1)] ->
         parens (parens (tupled [a0, a1]) <+> "=>" <+> stext name <> tupled [a0, a1])
         <> parens (stext "json |> Json.Decode.tuple2" <> tupled [r0, r1])
       [(r0,a0), (r1,a1), (r2,a2)] ->
         parens (parens (tupled [a0, a1]) <+> "=>" <+> stext name <> tupled [a0, a1, a2])
-        <> parens (stext "json |> Json.Decode.tuple2" <> tupled [r0, r1, r2])
+        <> parens (stext "json |> Json.Decode.tuple3" <> tupled [r0, r1, r2])
       [(r0,a0), (r1,a1), (r2,a2) , (r3,a3)] ->
         parens (parens (tupled [a0, a1]) <+> "=>" <+> stext name <> tupled [a0, a1, a2, a3])
-        <> parens (stext "json |> Json.Decode.tuple2" <> tupled [r0, r1, r2, r3])
+        <> parens (stext "json |> Json.Decode.tuple4" <> tupled [r0, r1, r2, r3])
       _ -> error "Bare constructors with more than 4 arguments are not supported, use records"
   render (NamedConstructor name value) = do
-    (n, val) <- renderConstructorArgs 0 value
+    (_, val) <- renderConstructorArgs 0 value
     return $ (stext name <+> parens val)
   render (RecordConstructor _ value) = do
     dv <- render value
     return $ braces (line <> indent 4 dv)
-  render (MultipleConstructors constrs) = do
-      cstrs <- mapM renderSum constrs
-      pure $ line
+  render mc@(MultipleConstructors constrs) = do
+    cstrs <- mapM renderSum constrs
+    pure $ line
               <> indent 4
                ("json |>" <+> parens
-                 (constructorName <$$> indent 4
+                 ((if isEnumeration mc then
+                     "Json.Decode.string" else
+                     "Json.Decode.field(\"tag\", Json.Decode.string)")
+                   <$$> indent 4
                   ("|> Json.Decode.andThen" <$$>
                    parens ("(x) => switch(x)" <$$> braces (
                               line <> indent 4 (foldl1 (<$$>) cstrs
                                                 <$$> "|" <+> "_ =>" <+> "failwith(\"unknown constructor\")"))))))
-    where
-      constructorName :: Doc
-      constructorName = "Json.Decode.field(\"type\", Json.Decode.string)"
   
 -- | "<name>" -> decode <name>
 renderSumCondition :: T.Text -> Doc -> RenderM Doc
 renderSumCondition name contents =
-  pure $ "|" <+> dquotes (stext name) <+> "=> json => " <+> stext name <> (if isEmpty contents then
-                                                                              empty else
-                                                                              parens contents)
+  pure $ "|" <+> dquotes (stext name) <+> "=> json =>" <+> contents
 
 -- | Render a sum type constructor in context of a data type with multiple
 -- constructors.
 renderSum :: ReasonConstructor -> RenderM Doc
-renderSum (NamedConstructor name ReasonEmpty) = renderSumCondition name mempty
-renderSum (NamedConstructor name v@(Values _ _)) = do
-  (_, val) <- renderConstructorArgs 0 v
-  renderSumCondition name val
+renderSum (NamedConstructor name ReasonEmpty) = do
+  renderSumCondition name (stext name)
+renderSum n@(NamedConstructor name (Values _ _)) = do
+  r <- render n
+  renderSumCondition name r
 renderSum (NamedConstructor name value) = do
-  val <- render value
-  renderSumCondition name $ "json |> Json.Decode.field" <> tupled [dquotes "arg0", val]
+  r <- render value
+  renderSumCondition name (stext name <> parens ("json |> Json.Decode.field(\"contents\", " <> r <> ")"))
 renderSum (RecordConstructor name value) = do
   val <- render value
-  renderSumCondition name val
+  renderSumCondition name (stext name <> indent 0 (parens ("{" <> val <> "}")))
 renderSum (MultipleConstructors constrs) =
   foldl1 (<$$>) <$> mapM renderSum constrs
 
@@ -152,6 +151,11 @@ instance HasDecoderRef ReasonPrimitive where
     dx <- renderRef x
     dy <- renderRef y
     return $ "Json.Decode.tuple2" <> tupled [dx, dy]
+  renderRef (RTuple3 x y z) = do
+    dx <- renderRef x
+    dy <- renderRef y
+    dz <- renderRef z
+    return $ "Json.Decode.tuple3" <> tupled [dx, dy, dz]
   renderRef RUnit = pure "Json.Decode.nullAs"
   renderRef RTimePosix = pure "Json.Decode.date"
   renderRef RInt = pure "Json.Decode.int"

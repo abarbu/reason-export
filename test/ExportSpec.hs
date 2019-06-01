@@ -51,6 +51,8 @@ data Position
 data Timing
   = Start
   | Continue Double
+  | Continue2 Double Double
+  | Continue3 { c3a :: Double, c3b :: Double }
   | Stop
   deriving (Generic, ReasonType)
 
